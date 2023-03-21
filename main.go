@@ -16,10 +16,16 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
+
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/instrument"
+	sdk "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 )
 
-func main() {
-	flag.Parse()
+func promMetric() {
 
 	var (
 		opsProcessed = promauto.NewCounter(prometheus.CounterOpts{
@@ -29,6 +35,21 @@ func main() {
 	)
 	opsProcessed.Inc()
 
+}
+
+func main() {
+	flag.Parse()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+
+	otlpHandler, shutdownFunc, err := otlpmetric(ctx)
+	if err != nil {
+		log.Printf("Error creating metric,%s\n", err)
+	}
+	defer shutdownFunc()
+
+	promMetric()
+
 	http.Handle("/", echo())
 	http.Handle("/ping", ping())
 	http.Handle("/q/health/ready", ready())
@@ -36,6 +57,7 @@ func main() {
 	http.Handle("/q/metrics", promhttp.Handler())
 	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/echo", echo())
+	http.Handle("/otlpmetric", otlpHandler)
 
 	srv := &http.Server{
 		Addr:    ":8080",
@@ -56,7 +78,7 @@ func main() {
 
 	<-done
 	log.Print("server shutting down")
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+
 	defer func() {
 		cancel()
 	}()
@@ -125,4 +147,59 @@ func echo() http.Handler {
 			body.WriteTo(w) // nolint:errcheck
 		}
 	})
+}
+
+func otlpmetric(ctx context.Context) (http.Handler, func(), error) {
+
+	resources := resource.NewWithAttributes(
+		semconv.SchemaURL,
+		semconv.ServiceNameKey.String("metrics-demo"),
+		semconv.ServiceVersionKey.String("v0.0.0"),
+	)
+	// Instantiate the OTLP HTTP exporter
+	exporter, err := otlpmetrichttp.New(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Instantiate the OTLP HTTP exporter, send metrics every minute to OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+
+	meterProvider := sdk.NewMeterProvider(
+		sdk.WithResource(resources),
+		sdk.WithReader(sdk.NewPeriodicReader(exporter, sdk.WithInterval(10*time.Second))),
+	)
+
+	shutdownFunc := func() {
+		err := meterProvider.Shutdown(ctx)
+		if err != nil {
+			log.Printf("Error on shutdown of meter %s", err)
+		}
+		log.Println("shutdown of meter")
+	}
+
+	// Create an instance on a meter for the given instrumentation scope
+	meter := meterProvider.Meter(
+		"github.com/verysonglaa/metrics-demo",
+		metric.WithInstrumentationVersion("v0.0.0"),
+	)
+
+	// Create counter
+	requestCount, err := meter.Int64Counter(
+		"request_count",
+		instrument.WithDescription("Incoming request count"),
+		instrument.WithUnit("request"),
+	)
+	if err != nil {
+		log.Printf("Could not send metric to exporter (%s)", err)
+	}
+	//set to 1 on initialising
+	requestCount.Add(ctx, 1)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+
+		// Record measurements
+		attrs := semconv.HTTPServerMetricAttributesFromHTTPRequest("", req)
+		requestCount.Add(ctx, 1, attrs...)
+		log.Print("added 1 to otlp counter")
+		echo()
+	}), shutdownFunc, nil
 }
