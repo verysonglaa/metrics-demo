@@ -6,7 +6,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spf13/pflag v1.0.5
 	go.opentelemetry.io/otel v1.14.0
-	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v0.37.0
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.37.0
 	go.opentelemetry.io/otel/metric v0.37.0
 	go.opentelemetry.io/otel/sdk v1.14.0
 	go.opentelemetry.io/otel/sdk/metric v0.37.0

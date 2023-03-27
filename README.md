@@ -22,7 +22,8 @@ docker run -d --name otel-collector -p4318 -v $(pwd)/otel-config.yaml:/etc/otelc
 docker logs otel-collector -f
 # in new terminal
 ip=$(docker inspect otel-collector -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
-OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://$(echo $ip):4318/v1/metrics go run main.go
+#OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://$(echo $ip):4318/v1/metrics go run main.go
+OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://$(echo $ip):4317 go run main.go
 
 ```
 

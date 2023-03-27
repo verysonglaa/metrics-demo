@@ -17,7 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/instrument"
 	sdk "go.opentelemetry.io/otel/sdk/metric"
@@ -157,10 +157,15 @@ func otlpmetric(ctx context.Context) (http.Handler, func(), error) {
 		semconv.ServiceVersionKey.String("v0.0.0"),
 	)
 	// Instantiate the OTLP HTTP exporter
-	exporter, err := otlpmetrichttp.New(ctx)
+	// exporter, err := otlpmetrichttp.New(ctx)
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
+	exporter, err := otlpmetricgrpc.New(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	// Instantiate the OTLP HTTP exporter, send metrics every minute to OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
 
 	meterProvider := sdk.NewMeterProvider(
@@ -200,6 +205,6 @@ func otlpmetric(ctx context.Context) (http.Handler, func(), error) {
 		attrs := semconv.HTTPServerMetricAttributesFromHTTPRequest("", req)
 		requestCount.Add(ctx, 1, attrs...)
 		log.Print("added 1 to otlp counter")
-		echo()
+
 	}), shutdownFunc, nil
 }
