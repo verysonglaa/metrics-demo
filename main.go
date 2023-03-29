@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	flag "github.com/spf13/pflag"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/instrument"
 	sdk "go.opentelemetry.io/otel/sdk/metric"
@@ -156,12 +158,18 @@ func otlpmetric(ctx context.Context) (http.Handler, func(), error) {
 		semconv.ServiceNameKey.String("metrics-demo"),
 		semconv.ServiceVersionKey.String("v0.0.0"),
 	)
-	// Instantiate the OTLP HTTP exporter
-	// exporter, err := otlpmetrichttp.New(ctx)
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
-	exporter, err := otlpmetricgrpc.New(ctx)
+	var exporter sdk.Exporter
+	var err error
+
+	//METRICS takes precedence over general ENDPOINT
+	if strings.Contains(os.Getenv("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL"), "http") {
+		//Instantiate the OTLP HTTP exporter
+		exporter, err = otlpmetrichttp.New(ctx)
+	} else {
+		//Instantiate the OTLP gRPC exporter
+		exporter, err = otlpmetricgrpc.New(ctx)
+	}
+
 	if err != nil {
 		return nil, nil, err
 	}

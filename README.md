@@ -18,12 +18,14 @@ The following path are available:
 set otel collector http endpoint (if available) :
 
 ```bash
-docker run -d --name otel-collector -p4318 -v $(pwd)/otel-config.yaml:/etc/otelcol/config.yaml otel/opentelemetry-collector:0.73.0
+docker run -d --name otel-collector -v $(pwd)/otel-config.yaml:/etc/otelcol/config.yaml otel/opentelemetry-collector:0.73.0
 docker logs otel-collector -f
 # in new terminal
 ip=$(docker inspect otel-collector -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
-#OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://$(echo $ip):4318/v1/metrics go run main.go
-OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://$(echo $ip):4317 go run main.go
+#now pick one of the configurations below
+OTEL_EXPORTER_OTLP_METRICS_PROTOCOL="http/protobuf" OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://$(echo $ip):4318/v1/metrics go run main.go
+OTEL_EXPORTER_OTLP_METRICS_PROTOCOL="http/protobuf" OTEL_EXPORTER_OTLP_ENDPOINT=http://$(echo $ip):4318 go run main.go
+OTEL_EXPORTER_OTLP_METRICS_PROTOCOL="grpc" OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://$(echo $ip):4317 go run main.go
 
 ```
 
