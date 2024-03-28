@@ -1,0 +1,6 @@
+metrics:
+  hub: docker.io
+  image: grafgabriel/metrics-demo
+  tag: 0.0.3
+
+namespace: metrics-demo
