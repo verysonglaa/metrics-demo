@@ -1,3 +1,4 @@
+#!/bin/bash
 
 trap cleanup 1 2 3 6
 
@@ -6,18 +7,18 @@ cleanup()
   echo "stopping containers:"
   docker kill otel-collector
   docker rm otel-collector
-  kill $(jobs -p)
+  kill "$(jobs -p)"
   exit
 }
 
 echo "start otel collector (backend)"
-docker run -d --name otel-collector -v $(pwd)/otel-config.yaml:/etc/otelcol/config.yaml otel/opentelemetry-collector:0.73.0
+docker run -d --name otel-collector -v "$(pwd)/otel-config.yaml:/etc/otelcol/config.yaml" otel/opentelemetry-collector:0.101.0
 # in new terminal
 ip=$(docker inspect otel-collector -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
 #now pick one of the configurations below
 echo "build & start metrics-demo"
 CGO_ENABLED=0 go build .
-OTEL_EXPORTER_OTLP_METRICS_PROTOCOL="http/protobuf" OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://$(echo $ip):4318/v1/metrics ./metrics-demo &
+OTEL_EXPORTER_OTLP_METRICS_PROTOCOL="http/protobuf" OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="http://$ip:4318/v1/metrics" ./metrics-demo &
 sleep 60
 echo "increase counter and check"
 start=$(docker logs otel-collector 2>&1 | grep "Value:" | tail -n1| awk '{print $2}')
